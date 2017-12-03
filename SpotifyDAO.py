@@ -1,4 +1,5 @@
 import spotipy
+import numpy as np
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
@@ -14,12 +15,24 @@ class SpotifyDAO:
         print('querying all playlists with category: {}', category)
         playlists = self.sp.category_playlists(category_id=category, limit=query_results)['playlists']
         while playlists:
-            playlists_refs = playlists_refs + playlists['items']
+            playlists_refs += playlists['items']
             if playlists['next']:
                 playlists = self.sp.next(playlists)['playlists']
             else:
                 playlists = None
         print('completed {} playlists for: {}'.format(len(playlists_refs), category))
+        return playlists_refs
+
+    def get_user_playlists(self, user):
+        playlists_refs = [];
+        playlists = self.sp.user_playlists(user)
+        while playlists:
+            playlists_refs += playlists['items']
+            if playlists['next']:
+                playlists = self.sp.next(playlists)
+            else:
+                playlists = None
+        print('completed {} playlists for: {}'.format(len(playlists_refs), user))
         return playlists_refs
 
     def enrich_playlist(self, user_id, playlist_id):
@@ -36,8 +49,29 @@ class SpotifyDAO:
         audio_features = self.enrich_audio_features([tr['track']['id'] for tr in tracks_refs])
         for i in range(0, len(audio_features)):
             playlist['tracks']['items'][i]['track']['audio_features'] = audio_features[i]
+
+        tracks_artist = [tr['track']['artists'] for tr in playlist['tracks']['items']]
+        artist_ids = []
+        for artist in tracks_artist:
+            artist_ids += [performer['id'] for performer in artist]
+        artists_data = self.get_artist_information(artist_ids)
+        for i in range(0, len(playlist['tracks']['items'])):
+            for j in range(0, len(playlist['tracks']['items'][i]['track']['artists'])):
+                if playlist['tracks']['items'][i]['track']['artists'][j] is not None:
+                    artist_id = playlist['tracks']['items'][i]['track']['artists'][j]['id']
+                    playlist['tracks']['items'][i]['track']['artists'][j] = artists_data[artist_id]
         print('enriched playlist:{}'.format(playlist['name']))
         return playlist
+
+    def get_artist_information(self, artist_ids):
+        results = {}
+        artist_data = []
+        artist_ids = np.unique(artist_ids)
+        for i in range(0, len(artist_ids), self.MAX_QUERY_RESULTS):
+            artist_data += self.sp.artists(artist_ids[i:i + self.MAX_QUERY_RESULTS])['artists']
+        for i in range(0, len(artist_ids)):
+            results[artist_ids[i]] = artist_data[i]
+        return results
 
     def enrich_audio_features(self, track_ids):
         audio_features = []
@@ -59,7 +93,6 @@ class SpotifyDAO:
 
     def search(self, q, type='playlist', market=None, max_results=None):
         res_refs = []
-
         type_map = {
             'playlist': 'playlists',
             'track': 'tracks',
