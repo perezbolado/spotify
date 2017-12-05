@@ -27,6 +27,7 @@ dao = SpotifyDAO.SpotifyDAO()
 #with open('random_{}.json'.format(search), 'w') as outfile:
 #    json.dump(enriched_playlists, outfile)
 
+
 user = 'spotify'
 playlists = dao.get_user_playlists(user)
 enriched_playlists = []
@@ -36,5 +37,7 @@ for pl in playlists:
     except:
        print('Unable to enrich {}'.format(pl))
 
-with open('user_{}.json'.format(user), 'w') as outfile:
+with open('user_{}_v3.json'.format(user), 'w') as outfile:
     json.dump(enriched_playlists, outfile)
+
+#dao.enrich_playlist('spotify', '37i9dQZF1DX4dyzvuaRJ0n')

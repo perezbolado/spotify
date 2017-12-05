@@ -64,12 +64,15 @@ class PlaylistExtractor:
         add_times_dts = [parse(time).timestamp() for time in add_times if time is not None]
         return np.min(add_times_dts)
 
+    def active_period(self):
+        return self.last_update - self.first_update()
+
     def number_of_artist_genres(self):
         tracks_artist = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
-        artist_generes = []
+        artist_genres = []
         for artist in tracks_artist:
-            artist_generes = artist_generes + [performer['genres'] for performer in artist][0]
-        return len(np.unique(artist_generes))
+            artist_genres = artist_genres + [performer['genres'] for performer in artist][0]
+        return len(np.unique(artist_genres))
 
     def top_artist_genre_ratio_in_playlist(self):
         tracks_artist = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
@@ -86,6 +89,56 @@ class PlaylistExtractor:
         for artist in tracks_artist:
             artist_ids += [performer['id'] for performer in artist]
         return len(np.unique(artist_ids))
+
+    def decade_ratio(self):
+        track_albums = [tr['track']['album'] for tr in self.pl['tracks']['items']]
+        decade_count = {};
+        for i in range(1900, 2020, 10):
+            decade_count[i] = 0
+
+        for album in track_albums:
+            precision = album['release_date_precision']
+            if precision == 'year':
+                decade = int(int(album['release_date'])/10)*10
+            if precision == 'month':
+                year = int(album['release_date'].split('-')[0])
+                decade = int(year/10)*10
+            if precision == 'day':
+                decade = int(parse(album['release_date']).year/10)*10
+            if decade >= 1900:
+                decade_count[decade] += 1
+            else:
+                decade_count[1900] += 1
+
+        for decade, frequency in decade_count.items():
+            if frequency == 0:
+                decade_count[decade] = 0
+            else:
+                decade_count[decade] = decade_count[decade]/len(track_albums)
+        return decade_count
+
+    def playlist_name_score(self):
+        score = 0
+        words = []
+        word_freq = {}
+        tracks_tags = [tr['track']['album'] for tr in self.pl['tracks']['items']]
+        artists = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
+        for tags in tracks_tags:
+            for tag in tags:
+                words += tag.lower().split(' ')
+        for name in [artist['name'] for artist in artists]:
+            words += name.lower().relplace('[:.,]').split(' ')
+        for word in words:
+            if word in word_freq:
+                word_freq[word] += 1
+            else:
+                word_freq[word] = 1
+        for word, count in word_freq:
+            word_freq[word] = count/len(words)
+        for word in np.unique(self.pl['name'].lower.split(' ')):
+            if word in word_freq:
+                score += word_freq[word]
+        return score
 
     def get_playlists_tracks_audio_features(self):
         return [tr['track']['audio_features'] for tr in self.pl['tracks']['items']]

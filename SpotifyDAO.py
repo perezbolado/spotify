@@ -1,14 +1,19 @@
 import spotipy
 import numpy as np
+import musicbrainzngs
+
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
 class SpotifyDAO:
     MAX_QUERY_RESULTS = 50
+    MB_UPC_CACHE = {}
+    MB_ARTIST_CACHE = {}
 
     def __init__(self):
         client_credentials_manager = SpotifyClientCredentials()
         self.sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+        musicbrainzngs.set_useragent('playlists-producer', '1.0', 'perezbolado@gmail.com')
 
     def get_all_playlist_by_category(self, category, query_results=50):
         playlists_refs = []
@@ -50,6 +55,19 @@ class SpotifyDAO:
         for i in range(0, len(audio_features)):
             playlist['tracks']['items'][i]['track']['audio_features'] = audio_features[i]
 
+        albums = self.get_albums_information([tr['track']['album']['id'] for tr in tracks_refs])
+
+        for i in range(0, len(albums)):
+            playlist['tracks']['items'][i]['track']['album'] = albums[i]
+            if 'upc' in albums[i]['external_ids']:
+                upc = albums[i]['external_ids']['upc']
+                try:
+                    playlist['tracks']['items'][i]['track']['tags'] = self.get_tags_from_album_artist(upc)
+                except :
+                    print("Something went wrong with the request: {}".format(upc))
+                    playlist['tracks']['items'][i]['track']['tags'] =[]
+            else:
+                playlist['tracks']['items'][i]['track']['tags'] = []
         tracks_artist = [tr['track']['artists'] for tr in playlist['tracks']['items']]
         artist_ids = []
         for artist in tracks_artist:
@@ -60,8 +78,33 @@ class SpotifyDAO:
                 if playlist['tracks']['items'][i]['track']['artists'][j] is not None:
                     artist_id = playlist['tracks']['items'][i]['track']['artists'][j]['id']
                     playlist['tracks']['items'][i]['track']['artists'][j] = artists_data[artist_id]
+
         print('enriched playlist:{}'.format(playlist['name']))
         return playlist
+
+    def get_tags_from_album_artist(self, upc):
+        album_tags = []
+        if upc in self.MB_UPC_CACHE:
+            return self.MB_UPC_CACHE[upc]
+
+        response = musicbrainzngs.search_releases(query='barcode:{}'.format(upc))
+        if response['release-count'] == 0:
+            return []
+        release = response['release-list'][0]
+        for artist_credit in release['artist-credit']:
+            if type(artist_credit) == str:
+                continue
+            artist_id = artist_credit['artist']['id']
+            if artist_id in self.MB_ARTIST_CACHE:
+                album_tags += self.MB_ARTIST_CACHE[artist_id]
+            else:
+                artist_info = musicbrainzngs.get_artist_by_id(artist_id, includes=['tags'])['artist']
+                if'tag-list' in artist_info:
+                    tags = [tag['name'] for tag in artist_info['tag-list']]
+                    self.MB_ARTIST_CACHE[artist_id] = tags
+                    album_tags += tags
+        self.MB_UPC_CACHE[upc] = album_tags
+        return album_tags
 
     def get_artist_information(self, artist_ids):
         results = {}
@@ -72,6 +115,12 @@ class SpotifyDAO:
         for i in range(0, len(artist_ids)):
             results[artist_ids[i]] = artist_data[i]
         return results
+
+    def get_albums_information(self, album_ids, max_query=20):
+        albums = []
+        for i in range(0, len(album_ids), max_query):
+            albums += self.sp.albums(album_ids[i:i + max_query])['albums']
+        return albums
 
     def enrich_audio_features(self, track_ids):
         audio_features = []
@@ -84,7 +133,7 @@ class SpotifyDAO:
         cat_refs = [];
         categories = self.sp.categories(country, locale, limit=self.MAX_QUERY_RESULTS)['categories']
         while categories:
-            cat_refs += categories['items'];
+            cat_refs += categories['items']
             if categories['next']:
                 categories = self.sp.next(categories)['categories']
             else:
