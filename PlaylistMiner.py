@@ -3,16 +3,19 @@ import json
 
 dao = SpotifyDAO.SpotifyDAO()
 
-#def playlist_to_csv( playlist )
-
-
-#'''all playlists by category'''
+'''all playlists by category'''
 #category_ids = dao.get_list_of_categories()
-# for category in category_ids[7:]:
-#    playlists = dao.get_all_playlist_by_category(category)
-#    playlists = [dao.enrich_playlist(pl['owner']['id'], pl['id']) for pl in playlists]
-#    with open(category + '.json', 'w') as outfile:
-#        json.dump(playlists, outfile)
+#for category in category_ids[7:]:
+#enriched_playlists = []
+#category  = 'blues'
+#playlists = dao.get_all_playlist_by_category('blues')
+#for pl in playlists:
+#    try:
+#        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
+#    except:
+#        print('Unable to enrich {}'.format(pl))
+#with open(category + '.json', 'w') as outfile:
+#    json.dump(enriched_playlists, outfile)
 
 #'''Search for all playlists '''
 #search = 'rock'
@@ -28,16 +31,16 @@ dao = SpotifyDAO.SpotifyDAO()
 #    json.dump(enriched_playlists, outfile)
 
 
-user = 'spotify'
-playlists = dao.get_user_playlists(user)
-enriched_playlists = []
-for pl in playlists:
-    try:
-        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
-    except:
-       print('Unable to enrich {}'.format(pl))
+#user = 'spotify'
+#playlists = dao.get_user_playlists(user)
+#enriched_playlists = []
+#for pl in playlists:
+#    try:
+#        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
+#    except:
+#       print('Unable to enrich {}'.format(pl))
 
-with open('user_{}_v3.json'.format(user), 'w') as outfile:
-    json.dump(enriched_playlists, outfile)
+#with open('user_{}4.json'.format(user), 'w') as outfile:
+#    json.dump(enriched_playlists, outfile)
 
-#dao.enrich_playlist('spotify', '37i9dQZF1DX4dyzvuaRJ0n')
+#dao.enrich_playlist('spotify', '37i9dQZF1DX0XUsuxWHRQd')

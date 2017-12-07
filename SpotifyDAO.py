@@ -7,8 +7,9 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 class SpotifyDAO:
     MAX_QUERY_RESULTS = 50
-    MB_UPC_CACHE = {}
-    MB_ARTIST_CACHE = {}
+    #MB_UPC_CACHE = {}
+    #MB_ARTIST_CACHE = {}
+    AUDIO_ANALYSIS_CACHE ={}
 
     def __init__(self):
         client_credentials_manager = SpotifyClientCredentials()
@@ -54,20 +55,29 @@ class SpotifyDAO:
         audio_features = self.enrich_audio_features([tr['track']['id'] for tr in tracks_refs])
         for i in range(0, len(audio_features)):
             playlist['tracks']['items'][i]['track']['audio_features'] = audio_features[i]
-
+            #track_id = playlist['tracks']['items'][i]['track']['id']
+            #if track_id in self.AUDIO_ANALYSIS_CACHE:
+            #    playlist['tracks']['items'][i]['track']['audio_analysis'] = self.AUDIO_ANALYSIS_CACHE[track_id]
+            #else:
+            #    try:
+            #        audio_analysis = self.sp.audio_analysis(track_id)
+            #    except:
+            #        print("Unable to extract audio analysis from: {}".format(track_id))
+            #        audio_analysis = {}
+            #    self.AUDIO_ANALYSIS_CACHE[track_id] = audio_analysis
+            #playlist['tracks']['items'][i]['track']['audio_analysis'] = audio_analysis
         albums = self.get_albums_information([tr['track']['album']['id'] for tr in tracks_refs])
-
         for i in range(0, len(albums)):
             playlist['tracks']['items'][i]['track']['album'] = albums[i]
-            if 'upc' in albums[i]['external_ids']:
-                upc = albums[i]['external_ids']['upc']
-                try:
-                    playlist['tracks']['items'][i]['track']['tags'] = self.get_tags_from_album_artist(upc)
-                except :
-                    print("Something went wrong with the request: {}".format(upc))
-                    playlist['tracks']['items'][i]['track']['tags'] =[]
-            else:
-                playlist['tracks']['items'][i]['track']['tags'] = []
+            #if 'upc' in albums[i]['external_ids']:
+            #    upc = albums[i]['external_ids']['upc']
+            #    try:
+            #        playlist['tracks']['items'][i]['track']['tags'] = self.get_tags_from_album_artist(upc)
+            #    except :
+            #        print("Something went wrong with the request: {}".format(upc))
+            #        playlist['tracks']['items'][i]['track']['tags'] =[]
+            #else:
+            #    playlist['tracks']['items'][i]['track']['tags'] = []
         tracks_artist = [tr['track']['artists'] for tr in playlist['tracks']['items']]
         artist_ids = []
         for artist in tracks_artist:
@@ -78,7 +88,6 @@ class SpotifyDAO:
                 if playlist['tracks']['items'][i]['track']['artists'][j] is not None:
                     artist_id = playlist['tracks']['items'][i]['track']['artists'][j]['id']
                     playlist['tracks']['items'][i]['track']['artists'][j] = artists_data[artist_id]
-
         print('enriched playlist:{}'.format(playlist['name']))
         return playlist
 

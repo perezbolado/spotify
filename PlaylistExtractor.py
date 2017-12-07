@@ -121,23 +121,24 @@ class PlaylistExtractor:
         score = 0
         words = []
         word_freq = {}
-        tracks_tags = [tr['track']['album'] for tr in self.pl['tracks']['items']]
-        artists = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
-        for tags in tracks_tags:
-            for tag in tags:
-                words += tag.lower().split(' ')
-        for name in [artist['name'] for artist in artists]:
-            words += name.lower().relplace('[:.,]').split(' ')
-        for word in words:
-            if word in word_freq:
-                word_freq[word] += 1
-            else:
-                word_freq[word] = 1
-        for word, count in word_freq:
-            word_freq[word] = count/len(words)
-        for word in np.unique(self.pl['name'].lower.split(' ')):
-            if word in word_freq:
-                score += word_freq[word]
+        if 'tags' in self.pl['tracks']['items'][0]['track']:
+
+            tracks_tags = [tr['track']['tags'] for tr in self.pl['tracks']['items']]
+            artists = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
+            for tags in tracks_tags:
+                for tag in tags:
+                    words += tag.lower().split(' ')
+            for name in [artist[0]['name'] for artist in artists]:
+                words += name.lower().split(' ')
+            for word in words:
+                if word in word_freq:
+                    word_freq[word] += 1
+                else:
+                    word_freq[word] = 1
+            for word, count in word_freq.items():
+                word_freq[word] = count/len(words)
+                if word in self.pl['name']:
+                    score += word_freq[word]
         return score
 
     def get_playlists_tracks_audio_features(self):
@@ -150,3 +151,49 @@ class PlaylistExtractor:
     def get_audio_feature_std(self, feature):
         tracks_audio_features = self.get_playlists_tracks_audio_features()
         return np.std([trf[feature] for trf in tracks_audio_features if trf is not None and trf[feature] is not None])
+
+    def extract_features(self):
+        pl = {}
+        audio_fields = [
+            "danceability",
+            "energy",
+            "key",
+            "loudness",
+            "mode",
+            "speechiness",
+            "acousticness",
+            "instrumentalness",
+            "liveness",
+            "valence",
+            "tempo",
+            "duration_ms",
+            "time_signature"
+        ]
+        print('extracting features for: {}'.format(self.pl['name']))
+        pl['followers'] = self.num_of_followers()
+        pl['is_public'] = self.is_public()
+        pl['is_collaborative'] = self.is_collaborative()
+        pl['num_of_songs'] = self.num_of_songs()
+        pl['num_of_markets_avg'] = self.num_of_markets_avg()
+        pl['song_popularity_avg'] = self.song_popularity_avg()
+        pl['song_popularity_std'] = self.song_popularity_std()
+        pl['song_duration_avg'] = self.song_duration_avg()
+        pl['song_duration_std'] = self.song_duration_std()
+        pl['num_of_artists'] = self.num_of_artists()
+        pl['artist_popularity_avg'] = self.artist_popularity_avg()
+        pl['artist_popularity_std'] = self.artist_popularity_std()
+        pl['artist_genres'] = self.number_of_artist_genres()
+        pl['last_update'] = self.last_update()
+        pl['first_update'] = self.first_update()
+        pl['active_period'] = pl['last_update'] - pl['first_update']
+        pl['playlist_name_length'] = self.playlist_name_length()
+        pl['name_score'] = self.playlist_name_score()
+        decade_ratio = self.decade_ratio()
+        for decade, ratio in decade_ratio.items():
+            pl['decade_{}'.format(decade)] = ratio
+
+        for field in audio_fields:
+            pl[field + '_avg'] = self.get_audio_feature_avg(field)
+            pl[field + '_std'] = self.get_audio_feature_std(field)
+
+        return pl

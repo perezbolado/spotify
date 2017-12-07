@@ -39,7 +39,7 @@ def extract_features(pl_raw):
     pl['first_update'] = extractor.first_update()
     pl['active_period'] = pl['last_update'] - pl['first_update']
     pl['playlist_name_length'] = extractor.playlist_name_length()
-
+    pl['name_score'] = extractor.playlist_name_score()
     decade_ratio = extractor.decade_ratio()
     for decade, ratio in decade_ratio.items():
         pl['decade_{}'.format(decade)] = ratio
@@ -47,9 +47,10 @@ def extract_features(pl_raw):
     for field in audio_fields:
         pl[field + '_avg'] = extractor.get_audio_feature_avg(field)
         pl[field + '_std'] = extractor.get_audio_feature_std(field)
+
     return pl
 
-file_path = 'user_spotify_v2.1.json'
+file_path = 'EveryNoise.json'
 with open(file_path, "r") as fd:
     playlists_raw = json.load(fd)
 playlists_table = []
@@ -62,4 +63,4 @@ for pl_raw in playlists_raw:
         print('Unable to enrich {}'.format(pl_raw['name']))
 
 playlists_df = pd.DataFrame(playlists_table)
-playlists_df.to_csv('data.csv')
+playlists_df.to_csv('EveryNoise.csv')
