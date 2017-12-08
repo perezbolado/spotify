@@ -139,12 +139,14 @@ class PlaylistExtractor:
             returns the ratio of the playlist of the most popular genre in the playlist
         :return:
         """
+        ratio = 0
         tracks_artist = [tr['track']['artists'] for tr in self.pl['tracks']['items']]
         artist_genres = []
         for artist in tracks_artist:
             artist_genres += [performer['genres'] for performer in artist][0]
         artist_genre_mode = stats.mode(artist_genres)
-        ratio = artist_genres.count(artist_genre_mode) / len(artist_genres)
+        if len(artist_genre_mode.count) > 0:
+            ratio = artist_genre_mode.count[0] / len(artist_genres)
         return ratio
 
     def num_of_artists(self):
@@ -255,7 +257,7 @@ class PlaylistExtractor:
         for artist in track['track']['artists']:
             genres += artist['genres']
         track_data['genres'] = '|'.join(np.unique(genres))
-        track_data['playlist_name'] = self.pl.replace('The Sound of ', '')
+        track_data['playlist_name'] = self.pl['name']
         track_data['artists'] = '|'.join([artist['name'] for artist in track['track']['artists']])
         track_data['popularity'] = track['track']['popularity']
         track_data['artist_popularity'] = np.mean(
@@ -304,6 +306,7 @@ class PlaylistExtractor:
         pl['active_period'] = pl['last_update'] - pl['first_update']
         pl['playlist_name_length'] = self.playlist_name_length()
         pl['name_score'] = self.playlist_name_score()
+        pl['top_genre_ratio'] = self.top_artist_genre_ratio_in_playlist()
         decade_ratio = self.decade_ratio()
         for decade, ratio in decade_ratio.items():
             pl['decade_{}'.format(decade)] = ratio

@@ -19,32 +19,38 @@ dao = SpotifyDAO.SpotifyDAO()
 #for pl in playlists:
 
 '''get playlists by user'''
-#user = 'spotify'
-#playlists = dao.get_user_playlists(user)
-#enriched_playlists = []
+user = 'spotify'
+playlists = dao.get_user_playlists(user)
+enriched_playlists = []
 
-file_prefix = 'data/playlists'
+file_prefix = 'data/playlists_spotify'
+print_data_header = True
 for pl in playlists:
+    print_tracks_header = True
+    print('procesing: {}'.format(pl['id']))
+    plist = dao.enrich_playlist(pl['owner']['id'], pl['id'])
     try:
-        print_tracks_header = True
-        print('procesing: {}'.format(pl['id']))
-        plist = dao.enrich_playlist(pl['user'], pl['id'])
         extractor = PlaylistExtractor.PlaylistExtractor(plist)
-        plist_extracted_features = extractor.extract_features()
-        with open(file_prefix + '_raw.txt', 'a') as outfile:
-            outfile.write(json.dumps(plist) + '\n')
-        with open(file_prefix+'_data.csv', 'a') as data_outfile:
-            if print_data_header:
-                data_outfile.write(','.join([str(v) for v in plist_extracted_features.keys()]) + '\n')
-                print_data_header = False
-            data_outfile.write(','.join([str(v) for v in plist_extracted_features.values()]) + '\n')
-        print_tracks_header = True
-        with open(file_prefix+'_tracks.csv', 'a') as track_file:
-            for track in plist['tracks']['items']:
-                track_data = extractor.extract_track_features(track)
-                if print_tracks_header:
-                    track_file.write(','.join([str(v) for v in track_data.keys()]) + '\n')
-                    print_tracks_header = False
-                track_file.write(','.join([str(v) for v in track_data.values()]) + '\n')
     except:
-        print('unable to get playlist: id:{} genre:{}'.format(pl['id'], pl['genre']))
+        print('unable to get playlist: id:{}'.format(pl['id']))
+        continue
+    plist_extracted_features = extractor.extract_features()
+    with open(file_prefix + '_raw.txt', 'a') as outfile:
+        outfile.write(json.dumps(plist) + '\n')
+    with open(file_prefix+'_data.csv', 'a') as data_outfile:
+        if print_data_header:
+            data_outfile.write(','.join([str(v) for v in plist_extracted_features.keys()]) + '\n')
+            print_data_header = False
+        data_outfile.write(','.join([str(v) for v in plist_extracted_features.values()]) + '\n')
+    print_tracks_header = True
+    with open(file_prefix+'_tracks.csv', 'a', encoding='utf-8') as track_file:
+        for track in plist['tracks']['items']:
+            try:
+                track_data = extractor.extract_track_features(track)
+            except:
+                print('unable to parse track: id:{}'.format(track['track']['id']))
+                continue
+            if print_tracks_header:
+                track_file.write(','.join([str(v) for v in track_data.keys()]) + '\n')
+                print_tracks_header = False
+            track_file.write(','.join([str(v) for v in track_data.values()]) + '\n')

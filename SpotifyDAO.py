@@ -65,7 +65,7 @@ class SpotifyDAO:
         playlist = self.sp.user_playlist(user_id, playlist_id)
         tracks = playlist['tracks']
         while tracks:
-            tracks_refs = tracks_refs + [tr for tr in playlist['tracks']['items'] if tr['track']['id'] is not None]
+            tracks_refs = tracks_refs + [tr for tr in playlist['tracks']['items'] if tr is not None]
             if tracks['next']:
                 tracks = self.sp.next(tracks)
             else:
