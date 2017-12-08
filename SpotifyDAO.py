@@ -7,9 +7,9 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 class SpotifyDAO:
     MAX_QUERY_RESULTS = 50
-    #MB_UPC_CACHE = {}
-    #MB_ARTIST_CACHE = {}
-    AUDIO_ANALYSIS_CACHE ={}
+    MB_UPC_CACHE = {}
+    MB_ARTIST_CACHE = {}
+    AUDIO_ANALYSIS_CACHE = {}
 
     def __init__(self):
         client_credentials_manager = SpotifyClientCredentials()
@@ -17,6 +17,12 @@ class SpotifyDAO:
         musicbrainzngs.set_useragent('playlists-producer', '1.0', 'perezbolado@gmail.com')
 
     def get_all_playlist_by_category(self, category, query_results=50):
+        """
+            returns all the playlists for a category
+        :param category:
+        :param query_results:
+        :return:
+        """
         playlists_refs = []
         print('querying all playlists with category: {}', category)
         playlists = self.sp.category_playlists(category_id=category, limit=query_results)['playlists']
@@ -30,6 +36,11 @@ class SpotifyDAO:
         return playlists_refs
 
     def get_user_playlists(self, user):
+        """
+            return all the playlist for a spotify user
+        :param user:
+        :return:
+        """
         playlists_refs = [];
         playlists = self.sp.user_playlists(user)
         while playlists:
@@ -41,7 +52,15 @@ class SpotifyDAO:
         print('completed {} playlists for: {}'.format(len(playlists_refs), user))
         return playlists_refs
 
-    def enrich_playlist(self, user_id, playlist_id):
+    def enrich_playlist(self, user_id, playlist_id, get_audio_analysis=False, get_playlist_tags=False):
+        """
+            get an enriched playlist object
+        :param user_id:
+        :param playlist_id:
+        :param get_audio_analysis:
+        :param get_playlist_tags:
+        :return:
+        """
         tracks_refs = []
         playlist = self.sp.user_playlist(user_id, playlist_id)
         tracks = playlist['tracks']
@@ -55,29 +74,33 @@ class SpotifyDAO:
         audio_features = self.enrich_audio_features([tr['track']['id'] for tr in tracks_refs])
         for i in range(0, len(audio_features)):
             playlist['tracks']['items'][i]['track']['audio_features'] = audio_features[i]
-            #track_id = playlist['tracks']['items'][i]['track']['id']
-            #if track_id in self.AUDIO_ANALYSIS_CACHE:
-            #    playlist['tracks']['items'][i]['track']['audio_analysis'] = self.AUDIO_ANALYSIS_CACHE[track_id]
-            #else:
-            #    try:
-            #        audio_analysis = self.sp.audio_analysis(track_id)
-            #    except:
-            #        print("Unable to extract audio analysis from: {}".format(track_id))
-            #        audio_analysis = {}
-            #    self.AUDIO_ANALYSIS_CACHE[track_id] = audio_analysis
-            #playlist['tracks']['items'][i]['track']['audio_analysis'] = audio_analysis
+            # gets track audio analysis from spotify api
+            if get_audio_analysis:
+                track_id = playlist['tracks']['items'][i]['track']['id']
+                if track_id in self.AUDIO_ANALYSIS_CACHE:
+                    playlist['tracks']['items'][i]['track']['audio_analysis'] = self.AUDIO_ANALYSIS_CACHE[track_id]
+                else:
+                    try:
+                        audio_analysis = self.sp.audio_analysis(track_id)
+                    except:
+                        print("Unable to extract audio analysis from: {}".format(track_id))
+                        audio_analysis = {}
+                    self.AUDIO_ANALYSIS_CACHE[track_id] = audio_analysis
+                playlist['tracks']['items'][i]['track']['audio_analysis'] = audio_analysis
         albums = self.get_albums_information([tr['track']['album']['id'] for tr in tracks_refs])
         for i in range(0, len(albums)):
             playlist['tracks']['items'][i]['track']['album'] = albums[i]
-            #if 'upc' in albums[i]['external_ids']:
-            #    upc = albums[i]['external_ids']['upc']
-            #    try:
-            #        playlist['tracks']['items'][i]['track']['tags'] = self.get_tags_from_album_artist(upc)
-            #    except :
-            #        print("Something went wrong with the request: {}".format(upc))
-            #        playlist['tracks']['items'][i]['track']['tags'] =[]
-            #else:
-            #    playlist['tracks']['items'][i]['track']['tags'] = []
+            # gets tags associated with the artist for each track from musicbrainz
+            if get_playlist_tags:
+                if 'upc' in albums[i]['external_ids']:
+                    upc = albums[i]['external_ids']['upc']
+                    try:
+                        playlist['tracks']['items'][i]['track']['tags'] = self.get_tags_from_album_artist(upc)
+                    except :
+                        print("Something went wrong with the request: {}".format(upc))
+                        playlist['tracks']['items'][i]['track']['tags'] =[]
+                else:
+                    playlist['tracks']['items'][i]['track']['tags'] = []
         tracks_artist = [tr['track']['artists'] for tr in playlist['tracks']['items']]
         artist_ids = []
         for artist in tracks_artist:
@@ -92,6 +115,11 @@ class SpotifyDAO:
         return playlist
 
     def get_tags_from_album_artist(self, upc):
+        """
+            get artists tags fro album from music brainz
+        :param upc: album upc
+        :return:
+        """
         album_tags = []
         if upc in self.MB_UPC_CACHE:
             return self.MB_UPC_CACHE[upc]
@@ -116,6 +144,11 @@ class SpotifyDAO:
         return album_tags
 
     def get_artist_information(self, artist_ids):
+        """
+            get artist information from spotify api
+        :param artist_ids:
+        :return:
+        """
         results = {}
         artist_data = []
         artist_ids = np.unique(artist_ids)
@@ -126,12 +159,23 @@ class SpotifyDAO:
         return results
 
     def get_albums_information(self, album_ids, max_query=20):
+        """
+            get albums data from spotify
+        :param album_ids:
+        :param max_query:
+        :return:
+        """
         albums = []
         for i in range(0, len(album_ids), max_query):
             albums += self.sp.albums(album_ids[i:i + max_query])['albums']
         return albums
 
     def enrich_audio_features(self, track_ids):
+        """
+            get audio features for tracks
+        :param track_ids:
+        :return:
+        """
         audio_features = []
         for i in range(0, len(track_ids), self.MAX_QUERY_RESULTS):
             audio_features += self.sp.audio_features(tracks=track_ids[i:i + self.MAX_QUERY_RESULTS])
@@ -139,6 +183,12 @@ class SpotifyDAO:
         return audio_features
 
     def get_list_of_categories(self, country=None, locale=None):
+        """
+            get list of categories from spotify
+        :param country:
+        :param locale:
+        :return:
+        """
         cat_refs = [];
         categories = self.sp.categories(country, locale, limit=self.MAX_QUERY_RESULTS)['categories']
         while categories:
@@ -149,7 +199,15 @@ class SpotifyDAO:
                 categories = None
         return [ref['id'] for ref in cat_refs]
 
-    def search(self, q, type='playlist', market=None, max_results=None):
+    def search(self, q, query_type='playlist', market=None, max_results=None):
+        """
+            query the spotify search api
+        :param q:
+        :param query_type:
+        :param market:
+        :param max_results:
+        :return:
+        """
         res_refs = []
         type_map = {
             'playlist': 'playlists',
@@ -158,13 +216,13 @@ class SpotifyDAO:
             'artist': 'artists',
         }
 
-        results = self.sp.search(q, self.MAX_QUERY_RESULTS, type=type, market=market)[type_map[type]]
+        results = self.sp.search(q, self.MAX_QUERY_RESULTS, qurey_type=type, market=market)[type_map[query_type]]
         while results:
             res_refs += results['items']
             if max_results is not None and len(res_refs) + self.MAX_QUERY_RESULTS > max_results:
                 break
             if results['next']:
-                results = self.sp.next(results)[type_map[type]]
+                results = self.sp.next(results)[type_map[query_type]]
             else:
                 results = None
         return res_refs

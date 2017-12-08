@@ -6,7 +6,6 @@ import numpy as np
 import PlaylistExtractor
 from bs4 import BeautifulSoup
 
-
 def extract_track_features(track, pl_name):
     track_data = {}
     genres = []
@@ -18,10 +17,10 @@ def extract_track_features(track, pl_name):
     track_data['playlist_name'] = pl_name.replace('The Sound of ', '')
     track_data['artists'] = '|'.join([artist['name'] for artist in track['track']['artists']])
     track_data['popularity'] = track['track']['popularity']
+    track_data['artist_popularity'] = np.mean([artist['popularity'] for artist in track['track']['artists'] if artist['popularity'] is not None])
     track_data['explicit'] = track['track']['explicit']
     track_data['id'] = track['track']['id']
     return track_data
-
 
 dao = SpotifyDAO.SpotifyDAO()
 url = 'http://everynoise.com/everynoise1d.cgi?scope=all'

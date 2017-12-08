@@ -1,6 +1,6 @@
 import SpotifyDAO
 import json
-
+import PlaylistExtractor
 dao = SpotifyDAO.SpotifyDAO()
 
 '''all playlists by category'''
@@ -10,37 +10,41 @@ dao = SpotifyDAO.SpotifyDAO()
 #category  = 'blues'
 #playlists = dao.get_all_playlist_by_category('blues')
 #for pl in playlists:
-#    try:
-#        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
-#    except:
-#        print('Unable to enrich {}'.format(pl))
-#with open(category + '.json', 'w') as outfile:
-#    json.dump(enriched_playlists, outfile)
 
-#'''Search for all playlists '''
+
+'''get playlist using the search engine '''
 #search = 'rock'
 #playlists = dao.search(search, type='playlist', max_results=50)
 #enriched_playlists = []
 #for pl in playlists:
-#    try:
-#        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
-#    except:
-#        print('Unable to enrich {}'.format(pl))
-#
-#with open('random_{}.json'.format(search), 'w') as outfile:
-#    json.dump(enriched_playlists, outfile)
 
-
+'''get playlists by user'''
 #user = 'spotify'
 #playlists = dao.get_user_playlists(user)
 #enriched_playlists = []
-#for pl in playlists:
-#    try:
-#        enriched_playlists.append(dao.enrich_playlist(pl['owner']['id'], pl['id']))
-#    except:
-#       print('Unable to enrich {}'.format(pl))
 
-#with open('user_{}4.json'.format(user), 'w') as outfile:
-#    json.dump(enriched_playlists, outfile)
-
-#dao.enrich_playlist('spotify', '37i9dQZF1DX0XUsuxWHRQd')
+file_prefix = 'data/playlists'
+for pl in playlists:
+    try:
+        print_tracks_header = True
+        print('procesing: {}'.format(pl['id']))
+        plist = dao.enrich_playlist(pl['user'], pl['id'])
+        extractor = PlaylistExtractor.PlaylistExtractor(plist)
+        plist_extracted_features = extractor.extract_features()
+        with open(file_prefix + '_raw.txt', 'a') as outfile:
+            outfile.write(json.dumps(plist) + '\n')
+        with open(file_prefix+'_data.csv', 'a') as data_outfile:
+            if print_data_header:
+                data_outfile.write(','.join([str(v) for v in plist_extracted_features.keys()]) + '\n')
+                print_data_header = False
+            data_outfile.write(','.join([str(v) for v in plist_extracted_features.values()]) + '\n')
+        print_tracks_header = True
+        with open(file_prefix+'_tracks.csv', 'a') as track_file:
+            for track in plist['tracks']['items']:
+                track_data = extractor.extract_track_features(track)
+                if print_tracks_header:
+                    track_file.write(','.join([str(v) for v in track_data.keys()]) + '\n')
+                    print_tracks_header = False
+                track_file.write(','.join([str(v) for v in track_data.values()]) + '\n')
+    except:
+        print('unable to get playlist: id:{} genre:{}'.format(pl['id'], pl['genre']))
